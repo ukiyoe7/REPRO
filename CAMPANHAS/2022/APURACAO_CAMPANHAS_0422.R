@@ -153,7 +153,7 @@ CP_849_0422 %>% summarize(v=sum(VRVENDA)*0.07)
 ## LISTA PEDIDOS
 LIST_849_0422 <- CP_849_0422 %>% 
   mutate(CPF=rep(c("04455447911","06532582913"), length.out=nrow(CP_849_0422))) %>% 
-  mutate(OBS="VITAL 849 04/22")
+  mutate(OBS="VITAL 849 04/22 + RESIDUAL DIF BONUS 8% 03/22")
 
 
 View(LIST_849_0422)
@@ -174,11 +174,62 @@ PAG_849_0422 <- left_join(data.frame(CPF=c("04455447911","06532582913"),
                             select(NSERIE,CPF),by="CPF") %>% 
   .[,c(3,1,2)] %>% mutate(CLIENTE='849') %>% 
   mutate(GRUPO='') %>% 
-  mutate(OBS="VITAL 849 04/22") 
+  mutate(OBS="VITAL 849 04/22 + RESIDUAL DIF BONUS 8% 03/22") 
 
 View(PAG_849_0422)
 
 PAG_849_0422 %>% summarize(v=sum(BONUS))
+
+### CORREÇÃO MARÇO
+
+CP_849_0322 <- dbGetQuery(con2,"
+WITH FIS AS (SELECT FISCODIGO FROM TBFIS WHERE FISTPNATOP IN ('V','SR','R')),
+
+CLI AS(SELECT C.CLICODIGO,GCLCODIGO, CLINOMEFANT,SETOR FROM CLIEN C
+       LEFT JOIN (SELECT CLICODIGO,D.ZOCODIGO,ZODESCRICAO SETOR FROM ENDCLI D
+       INNER JOIN ZONA Z ON D.ZOCODIGO=Z.ZOCODIGO WHERE ENDFAT='S')A ON C.CLICODIGO=A.CLICODIGO
+       WHERE C.CLICODIGO=849),
+
+PD AS (SELECT ID_PEDIDO,PEDDTBAIXA,PEDID.CLICODIGO,GCLCODIGO,CLINOMEFANT,SETOR,PEDAUTORIZOU 
+       FROM PEDID 
+       INNER JOIN FIS ON PEDID.FISCODIGO1=FIS.FISCODIGO
+       INNER JOIN CLI ON PEDID.CLICODIGO=CLI.CLICODIGO
+       WHERE PEDDTBAIXA BETWEEN '01.03.2022' AND '31.03.2022'
+      AND PEDSITPED<>'C' AND PEDLCFINANC IN ('S', 'L','N'))
+
+
+SELECT 
+      PDPRD.ID_PEDIDO,
+       PEDDTBAIXA,
+        CLICODIGO,
+         GCLCODIGO,
+          SETOR,
+           PROCODIGO,
+            PDPDESCRICAO,
+             PEDAUTORIZOU,
+              SUM(PDPQTDADE) QTD,
+               SUM(PDPUNITLIQUIDO*PDPQTDADE)VRVENDA,
+                SUM(PDPUNITLIQUIDO*PDPQTDADE)*0.08 BONUS
+                 FROM
+                 PDPRD
+                 INNER JOIN PD ON PDPRD.ID_PEDIDO=PD.ID_PEDIDO
+                 GROUP BY 1,2,3,4,5,6,7,8") 
+
+View(CP_849_0322)
+
+
+CP_849_0322 %>% summarize(v=sum(VRVENDA)*0.08)
+
+CP_849_0322 %>% summarize(v=sum(VRVENDA)*0.07)
+
+CP_849_0322 %>% summarize(v=sum(VRVENDA)*0.08) - CP_849_0322 %>% summarize(v=sum(VRVENDA)*0.07)
+
+(CP_849_0322 %>% summarize(v=sum(VRVENDA)*0.08) - CP_849_0322 %>% summarize(v=sum(VRVENDA)*0.07))/2
+
+PAG_849_0422_2 <- PAG_849_0422 %>% 
+  mutate(BONUS=BONUS + sum((CP_849_0322 %>% summarize(v=sum(VRVENDA)*0.08) - CP_849_0322 %>% summarize(v=sum(VRVENDA)*0.07))/2))
+
+
 ### ===========================================================================================
 
 ## SQL 157 DOMBOSCO
@@ -1487,7 +1538,7 @@ PAG_RETRO_0222 %>% summarize(v=sum(BONUS))
 
 PAG_ALL_0422 <-  rbind( 
   PAG_G139_0422, ## schroeder 
-  PAG_849_0422,  ## Vital 
+  PAG_849_0422_2,  ## Vital 
   PAG_157_0422, ## Dom bosco 
   PAG_360_0422, #universal
   PAG_1419_0422, # look
