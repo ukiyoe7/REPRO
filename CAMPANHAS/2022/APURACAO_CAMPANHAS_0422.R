@@ -1455,11 +1455,18 @@ PD.ID_PEDIDO,
 
 View(CP_INSIGNE_0422) 
 
-## fix CPF
-CP_INSIGNE_0422 %>% filter(nchar(CPF)==10)%>% mutate(CPF='52304892949')
+
+CP_INSIGNE_0422 %>% 
+  
+  filter(CLICODIGO==151) %>% 
+  summarize(V=sum(BONUS))
+
+
 
 ## has CPF
-CP_INSIGNE_0422 %>% filter(nchar(CPF)==11) 
+CP_INSIGNE_0422 %>% filter(nchar(CPF)!=11 & CLICODIGO!=213 & CLICODIGO!=151) %>% View()
+
+
 
 ## Lino
 CP_INSIGNE_0422 %>% filter(CLICODIGO==213) %>% 
@@ -1467,11 +1474,17 @@ CP_INSIGNE_0422 %>% filter(CLICODIGO==213) %>%
 
 
 ##union all
-LIST_INSIGNE_0422 <- union_all(CP_INSIGNE_0422 %>% filter(nchar(CPF)==10)%>% mutate(CPF='52304892949'),
-                               CP_INSIGNE_0422 %>% filter(nchar(CPF)==11)) %>% 
-  union_all(.,CP_INSIGNE_0422 %>% filter(CLICODIGO==213) %>% 
-              mutate(CPF=rep(c("91212766920","06528427984","02235457088","03336880904"), length.out=nrow(.)))) %>% 
-  mutate(OBS="CAMPANHA INSIGNE 04/22")
+
+LIST_INSIGNE  <- rbind(CP_INSIGNE_0422 %>% filter(nchar(CPF)==11),
+                 CP_INSIGNE_0422 %>% filter(CLICODIGO==213) %>% mutate(CPF=rep(c("91212766920","06528427984","02235457088","03336880904"), length.out=nrow(.))) ,
+                 CP_INSIGNE_0422 %>% filter(GCLCODIGO==195) %>% mutate(CPF="06567345900"),
+                 CP_INSIGNE_0422 %>% filter(CLICODIGO==1232) %>% mutate(CPF="41941306934"),
+                 CP_INSIGNE_0422 %>% filter(GCLCODIGO==224) %>% mutate(CPF="94733546904"))  %>% 
+                 
+                 mutate(OBS="CAMPANHA INSIGNE 04/22")
+  
+View(LIST_INSIGNE)  
+  
 
 
 LIST_INSIGNE_0422 %>% filter(GCLCODIGO==285) %>% summarize(v=sum(BONUS))
@@ -1483,8 +1496,7 @@ LIST_INSIGNE_0422 %>% filter(GCLCODIGO==285) %>% summarize(v=sum(BONUS))
 PAG_INSIGNE_0422 <- LIST_INSIGNE_0422 %>% 
   group_by(CLICODIGO,GCLCODIGO,CPF) %>% 
   summarize(BONUS=sum(BONUS)) %>% 
-  left_join(.,CARTOES_ALELO_0422 %>% filter(NSERIE!='030000103414415') %>% 
-              filter(NSERIE!='030000094247944') %>% 
+  left_join(.,CARTOES_ALELO_0422 
               select(CPF,NSERIE),by="CPF") %>% 
   mutate(OBS="CAMPANHA INSIGNE 04/22") %>% 
   `colnames<-`(c("CLIENTE","GRUPO","CPF","BONUS","NSERIE","OBS")) %>% 
